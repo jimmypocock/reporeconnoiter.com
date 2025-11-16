@@ -68,23 +68,14 @@ Rails.application.configure do
   # Enable WebSocket connections for real-time progress updates
   config.action_cable.url = "wss://api.reporeconnoiter.com/cable"
 
-  # Allowed origins for WebSocket connections
-  # Default: Only allow Vercel frontend domains
-  # For testing: Set CABLE_ALLOWED_ORIGINS="https://insomnia.rest,null" in Render env vars
-  #   - "null" allows Insomnia/Postman (they send Origin: null for WebSocket)
-  #   - Comma-separated list for multiple testing origins
-  allowed_origins = [
+  # Allowed origins for WebSocket connections (browser CSRF protection only)
+  # Note: Non-browser clients (Insomnia, curl) can set any Origin header
+  # Real security comes from API key + user token authentication
+  # For testing in Insomnia: Set Origin header to "https://reporeconnoiter.com"
+  config.action_cable.allowed_request_origins = [
     "https://reporeconnoiter.com",
     "https://www.reporeconnoiter.com"
   ]
-
-  # Add custom testing origins from environment variable
-  if ENV["CABLE_ALLOWED_ORIGINS"].present?
-    custom_origins = ENV["CABLE_ALLOWED_ORIGINS"].split(",").map(&:strip)
-    allowed_origins.concat(custom_origins)
-  end
-
-  config.action_cable.allowed_request_origins = allowed_origins
 
   # Default URL options for url helpers (used in background jobs, mailers, etc.)
   config.action_mailer.default_url_options = { host: "api.reporeconnoiter.com", protocol: "https" }

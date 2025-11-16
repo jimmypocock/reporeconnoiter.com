@@ -116,6 +116,18 @@ bin/rails api_keys:stats                                         # Show usage st
 bin/rails api_keys:cleanup                                       # Delete old revoked keys (90+ days)
 ```
 
+### WebSocket Testing (Insomnia)
+
+**ActionCable WebSocket URL:**
+- Production: `wss://api.reporeconnoiter.com/cable`
+- Development: `ws://localhost:3001/cable`
+
+**Required Headers (Insomnia WebSocket request):**
+- `Origin: https://reporeconnoiter.com` (bypasses browser-only CSRF protection)
+- `Authorization: Bearer <API_KEY>` (if channel requires authentication)
+
+**Note:** Origin checking only prevents browser-based attacks. Non-browser clients (Insomnia, curl) can set any Origin header. Real security comes from API key + user token authentication, not Origin validation.
+
 ### Production (Render.com)
 
 ```bash
@@ -863,7 +875,6 @@ end
 - `CLARITY_PROJECT_ID` - Microsoft Clarity analytics project ID
 - `COMPARISON_SIMILARITY_THRESHOLD` - Query fuzzy matching threshold (default: 0.8)
 - `COMPARISON_CACHE_DAYS` - Cache TTL in days (default: 7)
-- `CABLE_ALLOWED_ORIGINS` - Additional WebSocket origins for testing (comma-separated, e.g., "null" for Insomnia/Postman)
 - `RAILS_LOG_LEVEL` - Logging verbosity (default: info)
 
 See `.env.example` for complete documentation.
