@@ -273,6 +273,9 @@ This is an **API-only backend service**. All user-facing features are consumed v
 3. **Tier 2 Processing (Expensive)**: gpt-5 performs deep analysis on-demand (README + issues)
 4. **Tier 3 Processing (Comparison)**: Multi-query GitHub search, merge/dedupe, AI-powered comparison with real-time progress tracking
 5. **Real-Time Progress Updates**: ActionCable broadcasts comparison creation progress to API clients via Solid Cable
+   - **WebSocket URL**: `wss://api.reporeconnoiter.com/cable?token=<JWT>` (JWT required in URL)
+   - **Ownership Verification**: Users can only subscribe to their own session_ids
+   - **Channels**: ComparisonStatusChannel, ComparisonProgressChannel, AnalysisProgressChannel
 6. **Caching Strategy**: Aggressive caching to minimize AI API costs - repos only re-analyzed if README changes or significant activity detected
 
 ### Core Services

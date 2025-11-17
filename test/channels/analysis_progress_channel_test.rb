@@ -1,15 +1,17 @@
 require "test_helper"
 
-class ComparisonStatusChannelTest < ActionCable::Channel::TestCase
+class AnalysisProgressChannelTest < ActionCable::Channel::TestCase
   def setup
     @user = users(:one)
-    # Create a valid comparison status for the user
-    @comparison_status = ComparisonStatus.create!(
+    @repository = repositories(:one)
+    # Create a valid analysis status for the user
+    @analysis_status = AnalysisStatus.create!(
       session_id: SecureRandom.uuid,
       user: @user,
+      repository: @repository,
       status: "processing"
     )
-    @session_id = @comparison_status.session_id
+    @session_id = @analysis_status.session_id
   end
 
   test "subscribes with valid session_id and user" do
@@ -17,7 +19,14 @@ class ComparisonStatusChannelTest < ActionCable::Channel::TestCase
     subscribe(session_id: @session_id)
 
     assert subscription.confirmed?
-    assert_has_stream "comparison_progress_#{@session_id}"
+    assert_has_stream "analysis_progress_#{@session_id}"
+  end
+
+  test "rejects subscription without user" do
+    stub_connection(current_user: nil)
+    subscribe(session_id: @session_id)
+
+    assert subscription.rejected?
   end
 
   test "rejects subscription without session_id" do
@@ -32,22 +41,6 @@ class ComparisonStatusChannelTest < ActionCable::Channel::TestCase
     subscribe(session_id: "")
 
     assert subscription.rejected?
-  end
-
-  test "receives broadcast messages" do
-    stub_connection(current_user: @user)
-    subscribe(session_id: @session_id)
-
-    # Simulate a progress broadcast
-    ActionCable.server.broadcast(
-      "comparison_progress_#{@session_id}",
-      { type: "progress", message: "Processing...", percentage: 50 }
-    )
-
-    assert_broadcast_on(
-      "comparison_progress_#{@session_id}",
-      { type: "progress", message: "Processing...", percentage: 50 }
-    )
   end
 
   test "unsubscribes and stops streams" do
@@ -68,38 +61,42 @@ class ComparisonStatusChannelTest < ActionCable::Channel::TestCase
   test "rejects subscription to another user's session" do
     user_a = users(:one)
     user_b = users(:two)
+    repository = repositories(:one)
 
-    # User A creates a comparison status
-    comparison_status = ComparisonStatus.create!(
+    # User A creates an analysis status
+    analysis_status = AnalysisStatus.create!(
       session_id: SecureRandom.uuid,
       user: user_a,
+      repository: repository,
       status: "processing"
     )
 
     # User B tries to subscribe to User A's session
     stub_connection(current_user: user_b)
-    subscribe(session_id: comparison_status.session_id)
+    subscribe(session_id: analysis_status.session_id)
 
-    # Should be REJECTED (currently FAILS - this is the vulnerability!)
+    # Should be REJECTED
     assert subscription.rejected?, "User B should not be able to subscribe to User A's session"
   end
 
   test "allows subscription to own session" do
     user_a = users(:one)
+    repository = repositories(:one)
 
-    # User A creates a comparison status
-    comparison_status = ComparisonStatus.create!(
+    # User A creates an analysis status
+    analysis_status = AnalysisStatus.create!(
       session_id: SecureRandom.uuid,
       user: user_a,
+      repository: repository,
       status: "processing"
     )
 
     # User A subscribes to their own session
     stub_connection(current_user: user_a)
-    subscribe(session_id: comparison_status.session_id)
+    subscribe(session_id: analysis_status.session_id)
 
     # Should be CONFIRMED
     assert subscription.confirmed?, "User A should be able to subscribe to their own session"
-    assert_has_stream "comparison_progress_#{comparison_status.session_id}"
+    assert_has_stream "analysis_progress_#{analysis_status.session_id}"
   end
 end

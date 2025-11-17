@@ -13,6 +13,10 @@ class ComparisonProgressChannel < ApplicationCable::Channel
     return reject unless current_user
     return reject unless params[:session_id].present?
 
+    # Verify ownership: user can only subscribe to their own sessions
+    status = ComparisonStatus.find_by(session_id: params[:session_id])
+    return reject unless status&.user_id == current_user.id
+
     stream_from "comparison_progress_#{params[:session_id]}"
   end
 end

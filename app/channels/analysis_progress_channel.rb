@@ -10,10 +10,20 @@
 #   )
 class AnalysisProgressChannel < ApplicationCable::Channel
   def subscribed
+    # Require authentication
+    return reject unless current_user
+
     # Ensure session_id parameter is provided
     session_id = params[:session_id]
 
     if session_id.blank?
+      reject
+      return
+    end
+
+    # Verify ownership: user can only subscribe to their own sessions
+    status = AnalysisStatus.find_by(session_id: session_id)
+    unless status&.user_id == current_user.id
       reject
       return
     end

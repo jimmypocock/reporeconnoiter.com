@@ -64,35 +64,42 @@ class ComparisonSearchQuery
   end
 
   def fuzzy_score_expression(sanitized)
+    # Use Rails connection.quote() for proper SQL escaping (best practice)
+    # .quote() adds quotes and escapes special characters, so remove manual quotes
+    quoted = ActiveRecord::Base.connection.quote(sanitized)
+
     # Use WORD_SIMILARITY scores multiplied by field weights
     <<~SQL.squish
-      WORD_SIMILARITY('#{sanitized}', user_query) * 100 +
-      WORD_SIMILARITY('#{sanitized}', COALESCE(technologies, '')) * 50 +
-      WORD_SIMILARITY('#{sanitized}', COALESCE(problem_domains, '')) * 30 +
-      WORD_SIMILARITY('#{sanitized}', COALESCE(architecture_patterns, '')) * 20 +
+      WORD_SIMILARITY(#{quoted}, user_query) * 100 +
+      WORD_SIMILARITY(#{quoted}, COALESCE(technologies, '')) * 50 +
+      WORD_SIMILARITY(#{quoted}, COALESCE(problem_domains, '')) * 30 +
+      WORD_SIMILARITY(#{quoted}, COALESCE(architecture_patterns, '')) * 20 +
       COALESCE((
-        SELECT MAX(WORD_SIMILARITY('#{sanitized}', c.name) * 10 * COALESCE(cc.confidence_score, 0.5))
+        SELECT MAX(WORD_SIMILARITY(#{quoted}, c.name) * 10 * COALESCE(cc.confidence_score, 0.5))
         FROM comparison_categories cc
         JOIN categories c ON c.id = cc.category_id
         WHERE cc.comparison_id = comparisons.id
-        AND WORD_SIMILARITY('#{sanitized}', c.name) > 0.45
+        AND WORD_SIMILARITY(#{quoted}, c.name) > 0.45
       ), 0)
     SQL
   end
 
   def exact_score_expression(sanitized)
+    # Use Rails connection.quote() for proper SQL escaping (best practice)
+    quoted = ActiveRecord::Base.connection.quote(sanitized)
+
     # Use binary scoring (match = weight, no match = 0)
     <<~SQL.squish
-      (CASE WHEN user_query ILIKE '%#{sanitized}%' THEN 100 ELSE 0 END) +
-      (CASE WHEN technologies ILIKE '%#{sanitized}%' THEN 50 ELSE 0 END) +
-      (CASE WHEN problem_domains ILIKE '%#{sanitized}%' THEN 30 ELSE 0 END) +
-      (CASE WHEN architecture_patterns ILIKE '%#{sanitized}%' THEN 20 ELSE 0 END) +
+      (CASE WHEN user_query ILIKE '%' || #{quoted} || '%' THEN 100 ELSE 0 END) +
+      (CASE WHEN technologies ILIKE '%' || #{quoted} || '%' THEN 50 ELSE 0 END) +
+      (CASE WHEN problem_domains ILIKE '%' || #{quoted} || '%' THEN 30 ELSE 0 END) +
+      (CASE WHEN architecture_patterns ILIKE '%' || #{quoted} || '%' THEN 20 ELSE 0 END) +
       COALESCE((
         SELECT MAX(10 * COALESCE(cc.confidence_score, 0.5))
         FROM comparison_categories cc
         JOIN categories c ON c.id = cc.category_id
         WHERE cc.comparison_id = comparisons.id
-        AND c.name ILIKE '%#{sanitized}%'
+        AND c.name ILIKE '%' || #{quoted} || '%'
       ), 0)
     SQL
   end
@@ -111,17 +118,20 @@ class ComparisonSearchQuery
   end
 
   def fuzzy_condition(sanitized)
+    # Use Rails connection.quote() for proper SQL escaping (best practice)
+    quoted = ActiveRecord::Base.connection.quote(sanitized)
+
     <<~SQL.squish
       (
-        WORD_SIMILARITY('#{sanitized}', user_query) > 0.45 OR
-        WORD_SIMILARITY('#{sanitized}', COALESCE(technologies, '')) > 0.45 OR
-        WORD_SIMILARITY('#{sanitized}', COALESCE(problem_domains, '')) > 0.45 OR
-        WORD_SIMILARITY('#{sanitized}', COALESCE(architecture_patterns, '')) > 0.45 OR
+        WORD_SIMILARITY(#{quoted}, user_query) > 0.45 OR
+        WORD_SIMILARITY(#{quoted}, COALESCE(technologies, '')) > 0.45 OR
+        WORD_SIMILARITY(#{quoted}, COALESCE(problem_domains, '')) > 0.45 OR
+        WORD_SIMILARITY(#{quoted}, COALESCE(architecture_patterns, '')) > 0.45 OR
         EXISTS (
           SELECT 1 FROM comparison_categories cc
           JOIN categories c ON c.id = cc.category_id
           WHERE cc.comparison_id = comparisons.id
-          AND WORD_SIMILARITY('#{sanitized}', c.name) > 0.45
+          AND WORD_SIMILARITY(#{quoted}, c.name) > 0.45
           AND COALESCE(cc.confidence_score, 0.5) >= 0.3
         )
       )
@@ -129,17 +139,20 @@ class ComparisonSearchQuery
   end
 
   def exact_condition(sanitized)
+    # Use Rails connection.quote() for proper SQL escaping (best practice)
+    quoted = ActiveRecord::Base.connection.quote(sanitized)
+
     <<~SQL.squish
       (
-        user_query ILIKE '%#{sanitized}%' OR
-        technologies ILIKE '%#{sanitized}%' OR
-        problem_domains ILIKE '%#{sanitized}%' OR
-        architecture_patterns ILIKE '%#{sanitized}%' OR
+        user_query ILIKE '%' || #{quoted} || '%' OR
+        technologies ILIKE '%' || #{quoted} || '%' OR
+        problem_domains ILIKE '%' || #{quoted} || '%' OR
+        architecture_patterns ILIKE '%' || #{quoted} || '%' OR
         EXISTS (
           SELECT 1 FROM comparison_categories cc
           JOIN categories c ON c.id = cc.category_id
           WHERE cc.comparison_id = comparisons.id
-          AND c.name ILIKE '%#{sanitized}%'
+          AND c.name ILIKE '%' || #{quoted} || '%'
           AND COALESCE(cc.confidence_score, 0.5) >= 0.3
         )
       )

@@ -14,21 +14,41 @@ info:
 
     ## Real-Time Updates (WebSocket)
 
-    For async operations like comparison creation, you can receive real-time progress updates via ActionCable WebSocket.
+    For async operations like comparison creation and deep analysis, you can receive real-time progress updates via ActionCable WebSocket.
 
-    **WebSocket URL:**
+    **WebSocket Connection URL:**
     - Production: `wss://api.reporeconnoiter.com/cable?token=<JWT>`
     - Development: `ws://localhost:3001/cable?token=<JWT>`
 
-    **Authentication:** Include JWT token as URL parameter: `?token=<JWT>`
+    **Authentication (REQUIRED):**
+    - ✅ JWT token MUST be passed as URL query parameter: `?token=<JWT>`
+    - ✅ Connection will be rejected without valid JWT
+    - ✅ Use same JWT from `/api/v1/auth/exchange` endpoint
 
-    **Subscribe to ComparisonStatusChannel:**
+    **Authorization (Ownership Verification):**
+    - ✅ Users can ONLY subscribe to their own session_ids
+    - ❌ Attempting to subscribe to another user's session will be rejected
+    - ✅ Protects against unauthorized access to real-time progress data
+
+    **Available Channels:**
+
+    1. **ComparisonStatusChannel** - Comparison creation progress
+    2. **ComparisonProgressChannel** - Alternative comparison progress channel
+    3. **AnalysisProgressChannel** - Deep repository analysis progress
+
+    **Example: Subscribe to ComparisonStatusChannel:**
     ```javascript
     import { createConsumer } from '@rails/actioncable'
 
-    const cable = createConsumer('wss://api.reporeconnoiter.com/cable?token=JWT_TOKEN')
+    // Get JWT from /api/v1/auth/exchange
+    const jwt = 'eyJhbGc...'
+
+    // Connect with JWT in URL
+    const cable = createConsumer(`wss://api.reporeconnoiter.com/cable?token=${jwt}`)
+
+    // Subscribe to your own session (from POST /comparisons response)
     const subscription = cable.subscriptions.create(
-      { channel: 'ComparisonStatusChannel', session_id: 'uuid-from-create' },
+      { channel: 'ComparisonStatusChannel', session_id: 'uuid-from-create-response' },
       {
         received(data) {
           // data.type: "progress" | "complete" | "error"
@@ -41,10 +61,16 @@ info:
 
     **Message Types:**
     - `progress`: Incremental progress update (includes step, message, percentage)
-    - `complete`: Comparison finished (includes comparison_id, redirect_url)
-    - `error`: Comparison failed (includes error message)
+    - `complete`: Operation finished (includes comparison_id or analysis_id, redirect_url)
+    - `error`: Operation failed (includes error message)
 
-    **Fallback:** If WebSocket is not available, use REST polling via `GET /comparisons/status/:session_id`
+    **Subscription Response:**
+    - Confirmed: `{"type":"confirm_subscription","identifier":"..."}`
+    - Rejected: `{"type":"reject_subscription","identifier":"..."}` (unauthorized)
+
+    **Fallback:** If WebSocket is not available, use REST polling:
+    - Comparisons: `GET /comparisons/status/:session_id`
+    - Analysis: `GET /repositories/status/:session_id`
 
     ## Authentication
 

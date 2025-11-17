@@ -52,16 +52,35 @@ class ApiKey < ApplicationRecord
     def authenticate(raw_key)
       return nil if raw_key.blank?
 
-      # Find all active keys and check each digest
-      # This is secure but slower than direct lookup
-      # For better performance at scale, consider using a prefix identifier
-      active.find_each do |api_key|
+      # Extract prefix from key (first 8 characters)
+      prefix = raw_key[0...8]
+
+      # Fast lookup: Find active keys with matching prefix
+      # This reduces BCrypt checks from N keys to 1 key (99.99% of the time)
+      candidate_keys = active.where(prefix: prefix)
+
+      # Check each candidate (usually just 1)
+      candidate_keys.find_each do |api_key|
         if BCrypt::Password.new(api_key.key_digest) == raw_key
           return api_key
         end
       rescue BCrypt::Errors::InvalidHash
         # Skip invalid digests
         next
+      end
+
+      # Fallback: Check legacy keys without prefix (for backward compatibility)
+      # Remove this block once all keys have been migrated
+      legacy_keys = active.where(prefix: nil)
+      if legacy_keys.any?
+        legacy_keys.find_each do |api_key|
+          if BCrypt::Password.new(api_key.key_digest) == raw_key
+            return api_key
+          end
+        rescue BCrypt::Errors::InvalidHash
+          # Skip invalid digests
+          next
+        end
       end
 
       nil
@@ -75,6 +94,9 @@ class ApiKey < ApplicationRecord
       # Generate secure random key (32 bytes = 64 hex chars)
       raw_key = SecureRandom.hex(32)
 
+      # Extract prefix for fast lookup (first 8 chars)
+      prefix = raw_key[0...8]
+
       # Hash the key with BCrypt (same as password hashing)
       key_digest = BCrypt::Password.create(raw_key)
 
@@ -82,6 +104,7 @@ class ApiKey < ApplicationRecord
       api_key = create!(
         name: name,
         key_digest: key_digest,
+        prefix: prefix,
         user: user
       )
 

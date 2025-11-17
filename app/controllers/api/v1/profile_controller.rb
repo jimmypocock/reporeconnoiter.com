@@ -47,7 +47,7 @@ module Api
       def show
         # Fetch recent activity
         recent_comparisons = current_user.comparisons.order(created_at: :desc).limit(20)
-        recent_analyses = current_user.analyses.where(type: "AnalysisDeep").order(created_at: :desc).limit(20)
+        recent_analyses = current_user.analyses.where(type: "AnalysisDeep").includes(:repository).order(created_at: :desc).limit(20)
 
         render_success(
           data: {

@@ -6,12 +6,12 @@ class Comparison < ApplicationRecord
   # Similarity threshold for fuzzy query matching (0.0 - 1.0)
   # Higher = stricter matching, fewer cache hits
   # Lower = looser matching, more cache hits (but potential false positives)
-  # REQUIRED: Set COMPARISON_SIMILARITY_THRESHOLD in .env (see .env.example)
-  SIMILARITY_THRESHOLD = ENV.fetch("COMPARISON_SIMILARITY_THRESHOLD").to_f
+  # Default: 0.8 (high precision - catches exact matches + typos, ~99% accuracy)
+  SIMILARITY_THRESHOLD = ENV.fetch("COMPARISON_SIMILARITY_THRESHOLD", "0.8").to_f
 
   # Cache TTL in days - comparisons older than this are considered stale
-  # REQUIRED: Set COMPARISON_CACHE_DAYS in .env (see .env.example)
-  CACHE_TTL_DAYS = ENV.fetch("COMPARISON_CACHE_DAYS").to_i
+  # Default: 7 days (balances freshness with API cost savings)
+  CACHE_TTL_DAYS = ENV.fetch("COMPARISON_CACHE_DAYS", "7").to_i
 
   # Conservative cost estimate for budget reservation
   # Varies by number of repos analyzed (typically 5-15 repos @ ~$0.01 each)

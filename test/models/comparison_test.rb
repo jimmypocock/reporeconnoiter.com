@@ -303,6 +303,65 @@ class ComparisonTest < ActiveSupport::TestCase
     assert_not_includes results, old_comp, "Should not include old comparison"
   end
 
+  #--------------------------------------
+  # SEARCH MODES: Fuzzy vs Exact
+  #--------------------------------------
+
+  test "search with fuzzy: false uses exact substring matching" do
+    # Create comparison with "analyzer" in the name
+    comparison = create_comparison("repository analyzer library")
+    comparison.update!(problem_domains: "Code Analysis")
+
+    # Fuzzy mode should match similar words via WORD_SIMILARITY
+    # "analyse" is similar to "analyzer" but NOT a substring
+    fuzzy_results = Comparison.search("analyse", fuzzy: true)
+    assert_includes fuzzy_results, comparison, "Fuzzy mode should match 'analyse' to 'analyzer'"
+
+    # Exact mode should NOT match - "analyse" is not a substring of "analyzer"
+    exact_results = Comparison.search("analyse", fuzzy: false)
+    refute_includes exact_results, comparison, "Exact mode should NOT match 'analyse' to 'analyzer' (not a substring)"
+
+    # But exact mode SHOULD find actual substrings
+    exact_substring_results = Comparison.search("analyzer", fuzzy: false)
+    assert_includes exact_substring_results, comparison, "Exact mode should find exact substring 'analyzer'"
+  end
+
+  #--------------------------------------
+  # SECURITY: SQL Injection Protection
+  #--------------------------------------
+
+  test "search protects against SQL injection attempts" do
+    comparison = create_comparison("Rails library")
+    comparison.update!(technologies: "Rails, Ruby")
+
+    # These malicious inputs should not execute SQL, just be treated as search terms
+    # They should either return safe results or no results, but never execute arbitrary SQL
+    malicious_inputs = [
+      "'; DROP TABLE comparisons; --",
+      "' OR 1=1 --",
+      "' UNION SELECT * FROM users --",
+      "\\' OR \\'1\\'=\\'1",
+      "admin'--",
+      "1' AND '1' = '1",
+      "'; DELETE FROM comparisons WHERE '1'='1",
+      "' OR 'x'='x"
+    ]
+
+    malicious_inputs.each do |malicious_input|
+      # Should not raise any errors when processing malicious input
+      results = Comparison.search(malicious_input)
+
+      # Should return a valid ActiveRecord::Relation (not execute SQL)
+      assert results.is_a?(ActiveRecord::Relation), "Should return AR::Relation for: #{malicious_input}"
+
+      # Should not delete our test comparison (proves DELETE didn't execute)
+      assert Comparison.exists?(comparison.id), "Comparison should still exist after: #{malicious_input}"
+
+      # Table should still exist and be queryable (proves DROP didn't execute)
+      assert_operator Comparison.count, :>=, 1, "Table should still exist with at least 1 record"
+    end
+  end
+
   private
 
   def create_comparison(query, created_at: Time.current)

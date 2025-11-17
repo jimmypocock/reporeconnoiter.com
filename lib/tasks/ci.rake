@@ -32,6 +32,6 @@ namespace :ci do
     puts "\n🧪 Running tests..."
     sh "bin/rails db:test:prepare"
     sh "bin/rails test"
-    sh "bin/rails test:system"
+    # sh "bin/rails test:system" # No longer needed after moving to strictly API
   end
 end
