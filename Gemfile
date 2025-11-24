@@ -23,7 +23,7 @@ gem "jbuilder"
 # GitHub API client [https://github.com/octokit/octokit.rb]
 gem "octokit"
 # OpenAI API client [https://github.com/openai/openai-ruby]
-gem "openai", "~> 0.35.1"
+gem "openai", "~> 0.36.1"
 # Faraday retry middleware
 gem "faraday-retry"
 # Ruby OpenSSL wrapper - pinned to 3.3.1+ for OpenSSL 3.6 CRL fix
